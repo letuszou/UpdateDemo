@@ -219,5 +219,59 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             e.printStackTrace();
         }
     }
+    
+    
+    
+            //更新软件
+//        Volley.newRequestQueue(this).add(new XMLRequest(UpdateManager.http_url,
+//                new Response.Listener<XmlPullParser>() {
+//                    @Override
+//                    public void onResponse(XmlPullParser response) {
+//                        try {
+//                            HashMap<String, String> hashMap = new HashMap<>();
+//                            int eventType = response.getEventType();
+//                            while (eventType != XmlPullParser.END_DOCUMENT) {
+//                                switch (eventType) {
+//                                    case XmlPullParser.START_TAG:
+//                                        String nodeName = response.getName();
+//                                        //版本号
+//                                        if ("version".equals(nodeName)) {
+//                                            hashMap.put("version", response.nextText());
+//                                        }
+//                                        //软件名称
+//                                        else if (("name".equals(nodeName))) {
+//                                            hashMap.put("name", response.nextText());
+//                                        }
+//                                        //下载地址
+//                                        else if (("url".equals(nodeName))) {
+//                                            hashMap.put("url", response.nextText());
+//                                        } else if (("desc".equals(nodeName))) {
+//                                            String desc = response.nextText();
+//                                            String temp = new String(desc.getBytes("iso8859-1"), "UTF-8");
+//                                            hashMap.put("desc", temp);
+//                                        }
+//                                        break;
+//                                }
+//                                eventType = response.next();
+//                            }
+//                            //显示更新对话框、下载框、下载并安装apk
+//                            int versionCode = UpdateManager.getVersionCode(HomeActivity.this);
+//                            int serviceCode = Integer.valueOf(hashMap.get("version"));
+//                            if (serviceCode > versionCode) {
+//                                new UpdateManager(HomeActivity.this, hashMap).checkUpdate();
+//                            }
+//                        } catch (XmlPullParserException e) {
+//                            e.printStackTrace();
+//                        } catch (IOException e) {
+//                            e.printStackTrace();
+//                        }
+//                    }
+//                }, new Response.ErrorListener() {
+//            @Override
+//            public void onErrorResponse(VolleyError error) {
+//                Log.d("TAG", error.toString());
+//            }
+//        }));
+    
 
 }
