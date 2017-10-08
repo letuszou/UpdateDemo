@@ -5,6 +5,7 @@ import android.app.DownloadManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Environment;
@@ -18,6 +19,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+
 import com.lzy.okgo.OkGo;
 import com.lzy.okgo.callback.FileCallback;
 import com.lzy.okgo.callback.StringCallback;
@@ -33,11 +35,15 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 
+import cn.pedant.SweetAlert.SweetAlertDialog;
+
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     String XmlUrl = "http://ocf5858b1.bkt.clouddn.com/update_demo.xml";
     String JsonUrl = "http://ocf5858b1.bkt.clouddn.com/update_demo.json";
+    private SweetAlertDialog pDialog;
+
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -45,7 +51,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             HashMap<String, String> hashMap = (HashMap) msg.obj;
             String desc = hashMap.get("desc");
             final String downloadUrl = hashMap.get("url");
-
             new AlertDialog.Builder(MainActivity.this)
                     .setTitle("新版本提示框")
                     .setMessage(desc)
@@ -53,6 +58,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
                             downloadFromXml(downloadUrl);
+                            pDialog.show();
                         }
                     })
                     .setNegativeButton("下次再说", new DialogInterface.OnClickListener() {
@@ -65,15 +71,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     };
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         verifyStoragePermissions(MainActivity.this);
         initVew();
+        initDialog();
 
     }
-
 
     private void initVew() {
         Button btn_json_update1 = (Button) findViewById(R.id.btn_json_update1);
@@ -81,6 +88,61 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Button btn_json_update2 = (Button) findViewById(R.id.btn_json_update2);
         btn_json_update2.setOnClickListener(this);
     }
+
+    private void initDialog() {
+        pDialog = new SweetAlertDialog(this, SweetAlertDialog.PROGRESS_TYPE);
+        pDialog.setTitleText("已下载0");
+        pDialog.setCancelable(false);
+    }
+
+
+    private void updateTwo() {
+        try {
+            URL url = new URL(XmlUrl);
+            HttpURLConnection urlConn = (HttpURLConnection) url.openConnection();
+            InputStream inStream = urlConn.getInputStream();
+            ParseXmlService parseXmlService = new ParseXmlService();
+            HashMap<String, String> hashMap = parseXmlService.parseXml(inStream);
+//            String desc = hashMap.get("desc");
+//            final String downloadUrl = hashMap.get("url");
+            int version = Integer.valueOf(hashMap.get("version"));
+            if (version > getVersionCode()) {
+                Message message = handler.obtainMessage();
+                message.obj = hashMap;
+                handler.sendMessage(message);
+            }
+        } catch (Exception e) {
+            Log.e("error", "error：" + e.toString());
+        }
+    }
+
+    private void downloadFromXml(String url) {
+        OkGo.<File>get(url).tag(this).execute(new FileCallback() {
+                                                  @Override
+                                                  public void downloadProgress(Progress progress) {
+                                                      //,"已下载"+(int)(progress.fraction*100)
+                                                      pDialog.setTitleText("已下载" + (int) (progress.fraction * 100) + "%");
+                                                  }
+
+                                                  @Override
+                                                  public void onSuccess(Response<File> response) {
+                                                      pDialog.dismiss();
+                                                      String path = "" + response.body();
+                                                      install(path);
+                                                  }
+                                              }
+        );
+
+    }
+
+    //安装APP
+    public void install(String mUrl) {
+        // 核心是下面几句代码
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(Uri.fromFile(new File(mUrl)), "application/vnd.android.package-archive");
+        startActivity(intent);
+    }
+
 
     private void updateOne() {
         OkGo.<String>get(JsonUrl).tag(this).execute(new StringCallback() {
@@ -94,6 +156,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         int version = jsonObject.optInt("version");
                         final String url = jsonObject.optString("url");
                         String desc = jsonObject.optString("desc");
+
                         new AlertDialog.Builder(MainActivity.this)
                                 .setTitle("新版本提示框")
                                 .setMessage(desc)
@@ -135,51 +198,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         PreferenceUtil.setStringValue("download_path", downloadPath, MainActivity.this);
     }
 
-    private void updateTwo() {
-
-        try {
-            URL url = new URL(XmlUrl);
-            HttpURLConnection urlConn = (HttpURLConnection) url.openConnection();
-            InputStream inStream = urlConn.getInputStream();
-            ParseXmlService parseXmlService = new ParseXmlService();
-            HashMap<String, String> hashMap = parseXmlService.parseXml(inStream);
-            String desc = hashMap.get("desc");
-            final String downloadUrl = hashMap.get("url");
-            Message message = handler.obtainMessage();
-            message.obj = hashMap;
-            handler.sendMessage(message);
-        } catch (Exception e) {
-            Log.e("error", "error：" + e.toString());
-        }
-
-    }
-
-    private void downloadFromXml(String url) {
-        OkGo.<File>get(url).tag(this).execute(new FileCallback() {
-                                                  @Override
-                                                  public void downloadProgress(Progress progress) {
-                                                      //,"已下载"+(int)(progress.fraction*100)
-                                                      Log.e("error","已下载"+(int)(progress.fraction*100));
-                                                  }
-
-                                                  @Override
-                                                  public void onSuccess(Response<File> response) {
-                                                      String path = "" + response.body();
-                                                      install(path);
-                                                  }
-                                              }
-        );
-
-    }
-
-
-    public void install(String mUrl) {
-        // 核心是下面几句代码
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.fromFile(new File(mUrl)), "application/vnd.android.package-archive");
-        startActivity(intent);
-    }
-
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
@@ -190,7 +208,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        // 写子线程中的操作
+                        // 读取xml 属于耗时操作 写子线程中的操作 建议用网络框架来写
                         Looper.prepare();
                         updateTwo();
                     }
@@ -199,6 +217,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
         }
 
+    }
+
+    //获取APP版本号
+    private int getVersionCode() {
+        try {
+            PackageInfo packageInfo = getApplicationContext().getPackageManager().getPackageInfo(MainActivity.this.getPackageName(), 0);
+            int localVersion = packageInfo.versionCode;
+            return localVersion;
+        } catch (PackageManager.NameNotFoundException e) {
+            return 0;
+        }
     }
 
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -219,59 +248,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             e.printStackTrace();
         }
     }
-    
-    
-    
-            //更新软件
-//        Volley.newRequestQueue(this).add(new XMLRequest(UpdateManager.http_url,
-//                new Response.Listener<XmlPullParser>() {
-//                    @Override
-//                    public void onResponse(XmlPullParser response) {
-//                        try {
-//                            HashMap<String, String> hashMap = new HashMap<>();
-//                            int eventType = response.getEventType();
-//                            while (eventType != XmlPullParser.END_DOCUMENT) {
-//                                switch (eventType) {
-//                                    case XmlPullParser.START_TAG:
-//                                        String nodeName = response.getName();
-//                                        //版本号
-//                                        if ("version".equals(nodeName)) {
-//                                            hashMap.put("version", response.nextText());
-//                                        }
-//                                        //软件名称
-//                                        else if (("name".equals(nodeName))) {
-//                                            hashMap.put("name", response.nextText());
-//                                        }
-//                                        //下载地址
-//                                        else if (("url".equals(nodeName))) {
-//                                            hashMap.put("url", response.nextText());
-//                                        } else if (("desc".equals(nodeName))) {
-//                                            String desc = response.nextText();
-//                                            String temp = new String(desc.getBytes("iso8859-1"), "UTF-8");
-//                                            hashMap.put("desc", temp);
-//                                        }
-//                                        break;
-//                                }
-//                                eventType = response.next();
-//                            }
-//                            //显示更新对话框、下载框、下载并安装apk
-//                            int versionCode = UpdateManager.getVersionCode(HomeActivity.this);
-//                            int serviceCode = Integer.valueOf(hashMap.get("version"));
-//                            if (serviceCode > versionCode) {
-//                                new UpdateManager(HomeActivity.this, hashMap).checkUpdate();
-//                            }
-//                        } catch (XmlPullParserException e) {
-//                            e.printStackTrace();
-//                        } catch (IOException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-//                }, new Response.ErrorListener() {
-//            @Override
-//            public void onErrorResponse(VolleyError error) {
-//                Log.d("TAG", error.toString());
-//            }
-//        }));
-    
+
 
 }
